@@ -85,7 +85,7 @@ function startErrorDrills(){
 function renderErrorDrills(){
  const d=st.errorDrills,box=$('errDrill');
  if(!d||!d.items||!d.items.length){box.innerHTML='<p class="muted">点击「生成 / 重置5步复练」开始。</p>';return}
- if(d.index>=d.items.length){box.innerHTML='<div class="feedback">5步复练完成！建议回到对应训练模块再做一次独立尝试。</div>';return}
+ if(d.index>=d.items.length){box.innerHTML='<div class="feedback">本轮5步复练已完成。请判断是否真正掌握。</div><div class="row"><button onclick="confirmErrorDrillMastery()">我已掌握，归档本轮错误</button><button onclick="startErrorDrills()">再练一轮未掌握错误</button></div>';return}
  const x=d.items[d.index],idx=d.index;
  box.innerHTML='<div class="item"><span class="label">复练 '+(idx+1)+' / '+d.items.length+' · '+esc(x.type)+'</span><strong>'+esc(x.item)+'</strong><p><b>原错误：</b>'+esc(x.original)+'</p><p><b>任务：</b>'+errorDrillPrompt(x)+'</p><textarea id="edAnswer" placeholder="先独立尝试，不要直接看参考修正…">'+esc(x.answer||'')+'</textarea><div class="row"><button onclick="saveErrorDrillAnswer()">保存答案</button><button onclick="revealErrorDrill()">查看参考修正</button></div><div id="edFeedback" class="feedback" style="'+(x.revealed?'display:block':'display:none')+'">'+(x.revealed?'<p><b>参考修正：</b>'+esc(x.correction)+'</p><p><b>为什么：</b>'+esc(x.reason)+'</p><p class="muted">再试着用自己的话复述这个错误点。</p>':'')+'</div><div class="row"><button onclick="completeErrorDrill()" '+(!x.revealed?'disabled':'')+'>完成并下一步</button></div></div>';
 }
@@ -98,6 +98,14 @@ function errorDrillPrompt(x){
 function saveErrorDrillAnswer(){const d=st.errorDrills;if(!d||d.index>=d.items.length)return;d.items[d.index].answer=$('edAnswer').value.trim();persist();const fb=$('edFeedback');if(fb){fb.style.display='block';fb.textContent='复练答案已保存。继续尝试后再查看参考修正。';}}
 function revealErrorDrill(){const d=st.errorDrills;if(!d||d.index>=d.items.length)return;d.items[d.index].answer=$('edAnswer').value.trim();d.items[d.index].revealed=true;persist();renderErrorDrills();}
 function completeErrorDrill(){const d=st.errorDrills;if(!d||d.index>=d.items.length||!d.items[d.index].revealed)return;d.items[d.index].completed=true;d.index++;persist();renderErrorDrills();}
+function confirmErrorDrillMastery(){
+ const d=st.errorDrills;if(!d||!d.items||d.index<d.items.length)return;
+ const trained=d.items.filter(x=>x.completed);let archived=0;
+ trained.forEach(x=>{const match=st.errors.find(e=>!e.done&&e.type===x.type&&e.item===x.item&&e.original===x.original);if(match){match.done=true;match.masteredByDrill=true;match.masteredDate=new Date().toLocaleString();archived++}});
+ persist();renderErr();renderErrorDrills();
+ const box=$('errDrill');if(box)box.insertAdjacentHTML('beforeend','<p class="muted">已归档 '+archived+' 条对应错误。若答案仍不稳，建议不要归档或重新生成复练。</p>');
+}
+
 
 function exportB(){let blob=new Blob([JSON.stringify(st,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ielts-writing-lab-backup.json";a.click()}
 function importB(ev){let f=ev.target.files[0];if(!f)return;let rd=new FileReader();rd.onload=()=>{try{st={...st,...JSON.parse(rd.result)};persist();renderErr();alert("已导入备份")}catch{alert("文件格式不正确")}};rd.readAsText(f)}
