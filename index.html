@@ -41,7 +41,8 @@ const sentenceSet=[
 ];
 const KEY="ieltsLab_phase1";let st={reviews:{},chains:[],errors:[],sentences:[],transfer:{},last:"recall",dark:false};try{st={...st,...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch{}
 let ri=0,ii=0,si=0,ti=0,logicSaved=false,revealed=false,rated=false;
-const $=id=>document.getElementById(id);\nfunction esc(v){return String(v??"").split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;").split('"').join("&quot;").split("'").join("&#39;");}
+const $=id=>document.getElementById(id);
+function esc(v){return String(v??"").split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;").split('"').join("&quot;").split("'").join("&#39;");}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){console.warn('Local save unavailable',e)}homeStats()}
 function go(id){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll("#nav button").forEach(x=>x.classList.toggle("active",x.dataset.p===id));$("mob").value=id;if(id!=="home")st.last=id;persist();const titles={home:["TODAY","今天学习什么？"],recall:["PHRASE RECALL","主动回忆训练"],logic:["ARGUMENT BUILDER","论证构建训练"],sentence:["SENTENCE BUILDER","句子表达训练"],transfer:["TRANSFER","观点迁移训练"],errors:["ERROR LOG","错误记录"]};$("eyebrow").textContent=titles[id][0];$("title").textContent=titles[id][1];if(id==="recall")renderR();if(id==="logic")newLogic();if(id==="sentence")renderS();if(id==="transfer")renderT();if(id==="errors")renderErr()}
 $("nav").onclick=e=>{let b=e.target.closest("[data-p]");if(b)go(b.dataset.p)};$("mob").onchange=e=>go(e.target.value);
