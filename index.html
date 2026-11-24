@@ -78,6 +78,8 @@ function renderErr(){let e=st.errors.filter(x=>!x.done);$('errList').innerHTML=e
 function resolveErr(i){let e=st.errors.filter(x=>!x.done)[i];if(e)e.done=true;persist();renderErr()}
 function diagnoseErrors(){
  const active=st.errors.filter(e=>!e.done);
+ const byItem={};active.forEach(e=>{const k=e.type+'::'+e.item;byItem[k]=byItem[k]||{type:e.type,item:e.item,count:0};byItem[k].count++});
+ const repeated=Object.values(byItem).filter(x=>x.count>1).sort((a,b)=>b.count-a.count).slice(0,3);
  const groups=[
   {key:'主动回忆',title:'记忆与词汇提取',module:'主动回忆',hint:'先练中译英 / 关键词回忆，暂缓增加新素材。',match:e=>e.type==='主动回忆'},
   {key:'逻辑',title:'论证机制',module:'逻辑链',hint:'训练“观点 → 原因 → 机制 → 结果”，补足解释环节。',match:e=>e.type==='逻辑'},
@@ -88,14 +90,14 @@ function diagnoseErrors(){
  const unknown=active.filter(e=>!groups.some(g=>g.match(e)));
  const sorted=counts.filter(g=>g.count).sort((a,b)=>b.count-a.count);
  const target=sorted[0];
- $('errDiagnosis').innerHTML='<div class="row">'+counts.map(g=>'<span class="label">'+esc(g.title)+'：'+g.count+'</span>').join('')+'</div>'+(target?'<div class="item"><strong>当前优先训练：'+esc(target.title)+'</strong><p>'+esc(target.hint)+'</p><small>建议先处理此类错误，再增加新训练量。</small></div>':'<p class="muted">暂无可分类的未解决错误。完成练习后，诊断会自动更新。')+(unknown.length?'<p class="muted">其他类型 '+unknown.length+' 条：暂不自动归类，保留在错误列表中。</p>':'');
+ $('errDiagnosis').innerHTML='<div class="row">'+counts.map(g=>'<span class="label">'+esc(g.title)+'：'+g.count+'</span>').join('')+'</div>'+(repeated.length?'<div class="item"><strong>具体薄弱点（重复出现）</strong>'+repeated.map(x=>'<p>'+esc(x.type)+' · '+esc(x.item)+' <b>'+x.count+'次</b></p>').join('')+'<small>系统优先复练这些具体错误。</small></div>':'')+(target?'<div class="item"><strong>当前优先训练：'+esc(target.title)+'</strong><p>'+esc(target.hint)+'</p><small>建议先处理此类错误，再增加新训练量。</small></div>':'<p class="muted">暂无可分类的未解决错误。完成练习后，诊断会自动更新。')+(unknown.length?'<p class="muted">其他类型 '+unknown.length+' 条：暂不自动归类，保留在错误列表中。</p>':'');
 }
 function errorDrillKey(x){return [x.type,x.item,x.original].join('::')}
 function adaptiveLevel(x){const p=st.adaptiveDrills&&st.adaptiveDrills[errorDrillKey(x)];return p&&Number.isFinite(p.level)?Math.max(0,Math.min(3,p.level)):1}
 function adaptiveTask(x){return ['独立挑战：不看提示，完整重建。','轻支架：先写核心关键词，再扩展成完整答案。','中支架：先补“为什么 / 如何发生”的机制，再写结果。','强支架：先看参考修正理解关键表达，再遮住答案复述。'][adaptiveLevel(x)]}
 function adaptiveHint(x){return ['支架已撤除：先独立完成。','提示：先写核心原因或表达，再补机制与结果。','关键词参考：'+(x.correction||'核心观点')+'。围绕它展开。','参考思路：'+(x.correction||'')+'。理解后遮住答案再复述。'][adaptiveLevel(x)]}
 function showAdaptiveHint(){const d=st.errorDrills;if(!d||d.index>=d.items.length)return;const x=d.items[d.index],fb=$('edFeedback');fb.style.display='block';fb.insertAdjacentHTML('beforeend','<p><b>适应性提示：</b>'+esc(adaptiveHint(x))+'</p>')}
-function selfAssessDrill(success){const d=st.errorDrills;if(!d||d.index>=d.items.length)return;const x=d.items[d.index],key=errorDrillKey(x);st.adaptiveDrills=st.adaptiveDrills||{};const p=st.adaptiveDrills[key]||{level:1,successes:0,needsHelp:0};if(success){p.successes++;p.level=Math.max(0,p.level-1)}else{p.needsHelp++;p.level=Math.min(3,p.level+1)}p.lastAssessment=success?'independent':'needs_help';p.lastDate=new Date().toISOString();st.adaptiveDrills[key]=p;x.assessment=p.lastAssessment;persist();const f=$('edFeedback');if(f)f.insertAdjacentHTML('beforeend','<p class="muted">自评已保存：下次'+(success?'减少提示':'增加支架')+'。</p>')}
+function selfAssessDrill(success){const d=st.errorDrills;if(!d||d.index>=d.items.length)return;const x=d.items[d.index],key=errorDrillKey(x);if(x.assessment){const f=$('edFeedback');if(f)f.insertAdjacentHTML('beforeend','<p class="muted">本题自评已提交，不重复计入。</p>');return}st.adaptiveDrills=st.adaptiveDrills||{};const p=st.adaptiveDrills[key]||{level:1,successes:0,needsHelp:0};if(success){p.successes++;p.level=Math.max(0,p.level-1)}else{p.needsHelp++;p.level=Math.min(3,p.level+1)}p.lastAssessment=success?'independent':'needs_help';p.lastDate=new Date().toISOString();st.adaptiveDrills[key]=p;x.assessment=p.lastAssessment;persist();const f=$('edFeedback');if(f)f.insertAdjacentHTML('beforeend','<p class="muted">自评已保存：下次'+(success?'减少提示':'增加支架')+'。</p>')}
 function startErrorDrills(){
  const pending=st.errors.filter(x=>!x.done).slice(0,5);
  if(!pending.length){$('errDrill').innerHTML='<p class="muted">暂无未解决错误。完成真实训练后，系统会在这里生成复练。</p>';return}
