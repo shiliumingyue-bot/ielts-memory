@@ -7,7 +7,7 @@
 <section class="page" id="logic"><div class="panel"><small class="label">ARGUMENT BUILDER</small><h2>观点 → 原因 → 机制 → 结果 → 影响</h2><div id="logicPrompt" class="question"></div><div class="steps" id="logicInputs"></div><div class="row"><button onclick="logicHint()">提示</button><button class="primary" onclick="saveLogic()">检查并保存</button><button onclick="newLogic()">换题</button></div><div class="feedback" id="logicFeedback"></div></div></section>
 <section class="page" id="sentence"><div class="panel"><small class="label">SENTENCE BUILDER · ONE FOCUS</small><h2>通过……，某人能够……</h2><p id="sPrompt" class="question"></p><textarea class="answer" id="sInput" placeholder="写一句英文"></textarea><div class="row"><button onclick="sHint()">提示结构</button><button class="primary" onclick="sCheck()">检查</button><button onclick="sReveal()">参考表达</button><button onclick="nextS()">下一题</button></div><div class="feedback" id="sFeedback"></div></div></section>
 <section class="page" id="transfer"><div class="panel"><small class="label">TRANSFER · REASONING</small><h2>旧观点能否迁移到新题？</h2><div id="tPrompt" class="question"></div><textarea class="answer" id="tExplain" placeholder="说明观点为何适用或不适用，以及需要调整什么"></textarea><div class="row"><button class="primary" onclick="tChoice(true)">能迁移</button><button onclick="tChoice(false)">不能直接迁移</button><button onclick="tHint()">提示</button><button onclick="nextT()">下一题</button></div><div class="feedback" id="tFeedback"></div></div></section>
-<section class="page" id="errors"><div class="panel"><h2>错误记录</h2><p class="muted">只保存实际训练中的错误。记录包含原答、修正与原因。</p><div id="errList"></div><div class="panel" style="margin-top:12px"><h3>错误驱动复练 · 5步巩固</h3><p class="muted">从未解决错误自动生成短练习：先尝试作答，再看提示/参考修正，完成后进入下一步。</p><div class="row"><button onclick="startErrorDrills()">生成 / 重置5步复练</button></div><div id="errDrill"></div></div><div class="row"><button onclick="exportB()">导出备份</button><label>导入备份<input type="file" id="imp" hidden onchange="importB(event)"></label><button onclick="document.getElementById('imp').click()">选择文件</button></div></div></section>
+<section class="page" id="errors"><div class="panel"><h2>错误记录</h2><p class="muted">只保存实际训练中的错误。记录包含原答、修正与原因。</p><div id="errList"></div><div class="panel" style="margin-top:12px"><h3>错误诊断 · 训练优先级</h3><p class="muted">根据未解决错误类型自动统计，并给出下一步训练建议。此处是规则分类，不是 AI 语义判断。</p><div id="errDiagnosis"></div></div><div class="panel" style="margin-top:12px"><h3>错误驱动复练 · 5步巩固</h3><p class="muted">从未解决错误自动生成短练习：先尝试作答，再看提示/参考修正，完成后进入下一步。</p><div class="row"><button onclick="startErrorDrills()">生成 / 重置5步复练</button></div><div id="errDrill"></div></div><div class="row"><button onclick="exportB()">导出备份</button><label>导入备份<input type="file" id="imp" hidden onchange="importB(event)"></label><button onclick="document.getElementById('imp').click()">选择文件</button></div></div></section>
 <section class="page" id="bank"><div class="panel"><h2>观点素材库 · Legacy Bank</h2><p class="muted">已保留旧训练网站中的600条双语素材。先筛选、阅读和理解；此阶段不会自动覆盖原有主动回忆记录。</p><div class="row"><input id="bankSearch" placeholder="搜索中文 / English phrase"><select id="bankTopic"><option value="all">全部主题</option></select><select id="bankSection"><option value="all">全部类别</option></select></div><p id="bankCount" class="muted"></p><div id="bankItems" class="list"></div></div></section></main></div><script src="idea-bank.js"></script><script>
 const P=[
 {cn:"提高教育公平性",en:"promote educational equality",h:["p… e…","educational / equal","promote + noun"],ex:"Public investment can promote educational equality."},
@@ -76,6 +76,20 @@ function tHint(){$("tFeedback").style.display="block";$("tFeedback").textContent
 function nextT(){ti=(ti+1)%transfers.length;renderT()}
 function renderErr(){let e=st.errors.filter(x=>!x.done);$('errList').innerHTML=e.length?e.map((x,i)=>'<div class="item"><span class="label">'+esc(x.type)+'</span><strong>'+esc(x.item)+'</strong><p class="muted">原答：'+esc(x.original)+'</p><p>修正：'+esc(x.correction)+'</p><small class="muted">'+esc(x.reason)+' · '+esc(x.date)+'</small><div class="row"><button onclick="resolveErr('+i+')">标记掌握</button></div></div>').join(''):'<div class="muted">目前没有未解决错误。完成训练后，真实错误会记录在此。</div>'}
 function resolveErr(i){let e=st.errors.filter(x=>!x.done)[i];if(e)e.done=true;persist();renderErr()}
+function diagnoseErrors(){
+ const active=st.errors.filter(e=>!e.done);
+ const groups=[
+  {key:'主动回忆',title:'记忆与词汇提取',module:'主动回忆',hint:'先练中译英 / 关键词回忆，暂缓增加新素材。',match:e=>e.type==='主动回忆'},
+  {key:'逻辑',title:'论证机制',module:'逻辑链',hint:'训练“观点 → 原因 → 机制 → 结果”，补足解释环节。',match:e=>e.type==='逻辑'},
+  {key:'句子结构',title:'语言生成与句型',module:'句子训练',hint:'针对目标结构重新造句，先保证结构完整，再追求复杂度。',match:e=>e.type==='句子结构'},
+  {key:'迁移判断',title:'观点迁移',module:'迁移训练',hint:'练习判断观点的适用范围，避免无条件套用。',match:e=>e.type==='迁移判断'}
+ ];
+ const counts=groups.map(g=>({...g,count:active.filter(g.match).length}));
+ const unknown=active.filter(e=>!groups.some(g=>g.match(e)));
+ const sorted=counts.filter(g=>g.count).sort((a,b)=>b.count-a.count);
+ const target=sorted[0];
+ $('errDiagnosis').innerHTML='<div class="row">'+counts.map(g=>'<span class="label">'+esc(g.title)+'：'+g.count+'</span>').join('')+'</div>'+(target?'<div class="item"><strong>当前优先训练：'+esc(target.title)+'</strong><p>'+esc(target.hint)+'</p><small>建议先处理此类错误，再增加新训练量。</small></div>':'<p class="muted">暂无可分类的未解决错误。完成练习后，诊断会自动更新。')+(unknown.length?'<p class="muted">其他类型 '+unknown.length+' 条：暂不自动归类，保留在错误列表中。</p>':'');
+}
 function startErrorDrills(){
  const pending=st.errors.filter(x=>!x.done).slice(0,5);
  if(!pending.length){$('errDrill').innerHTML='<p class="muted">暂无未解决错误。完成真实训练后，系统会在这里生成复练。</p>';return}
@@ -102,12 +116,12 @@ function confirmErrorDrillMastery(){
  const d=st.errorDrills;if(!d||!d.items||d.index<d.items.length)return;
  const trained=d.items.filter(x=>x.completed);let archived=0;
  trained.forEach(x=>{const match=st.errors.find(e=>!e.done&&e.type===x.type&&e.item===x.item&&e.original===x.original);if(match){match.done=true;match.masteredByDrill=true;match.masteredDate=new Date().toLocaleString();archived++}});
- persist();renderErr();renderErrorDrills();
+ persist();renderErr();diagnoseErrors();renderErrorDrills();
  const box=$('errDrill');if(box)box.insertAdjacentHTML('beforeend','<p class="muted">已归档 '+archived+' 条对应错误。若答案仍不稳，建议不要归档或重新生成复练。</p>');
 }
 
 
 function exportB(){let blob=new Blob([JSON.stringify(st,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ielts-writing-lab-backup.json";a.click()}
 function importB(ev){let f=ev.target.files[0];if(!f)return;let rd=new FileReader();rd.onload=()=>{try{st={...st,...JSON.parse(rd.result)};persist();renderErr();alert("已导入备份")}catch{alert("文件格式不正确")}};rd.readAsText(f)}
-document.body.classList.toggle("dark",st.dark);renderHome();renderR();newLogic();renderS();renderT();renderErr();renderErrorDrills();renderBank();homeStats();
+document.body.classList.toggle("dark",st.dark);renderHome();renderR();newLogic();renderS();renderT();renderErr();diagnoseErrors();renderErrorDrills();renderBank();homeStats();
 </script></main></div></html>
